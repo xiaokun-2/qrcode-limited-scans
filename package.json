@@ -1,0 +1,15 @@
+{
+  "name": "qrcode-limited-scans",
+  "version": "1.0.0",
+  "description": "二维码生成与扫码次数限制系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "qrcode": "^1.5.4",
+    "pg": "^8.11.3",
+    "sequelize": "^6.37.1"
+  }
+}

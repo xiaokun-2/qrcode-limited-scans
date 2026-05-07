@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>二维码扫码次数限制系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header {
+      text-align: center;
+      padding: 30px 0;
+    }
+    header h1 { font-size: 28px; background: linear-gradient(90deg, #00d2ff, #3a7bd5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    header p { color: #888; margin-top: 8px; font-size: 14px; }
+    .card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .card h2 { font-size: 18px; margin-bottom: 18px; color: #ccc; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .form-group { flex: 1; min-width: 200px; }
+    .form-group label { display: block; font-size: 13px; color: #999; margin-bottom: 6px; }
+    .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: #3a7bd5; }
+    .form-group input::placeholder { color: #555; }
+    .form-group input[type="number"] { min-width: 120px; }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-primary { background: linear-gradient(90deg, #00d2ff, #3a7bd5); color: #fff; }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-danger { background: rgba(255,77,77,0.2); color: #ff4d4d; border: 1px solid rgba(255,77,77,0.3); }
+        .btn-danger:hover { background: rgba(255,77,77,0.3); }
+        .btn-secondary { background: rgba(255,255,255,0.08); color: #aaa; border: 1px solid rgba(255,255,255,0.12); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: #666;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      text-align: left;
+      padding: 12px 10px;
+      color: #888;
+      font-weight: 500;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .url-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-cell a { color: #5b9bd5; text-decoration: none; }
+    .url-cell a:hover { text-decoration: underline; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge-active { background: rgba(0,210,255,0.15); color: #00d2ff; }
+    .badge-expired { background: rgba(255,77,77,0.15); color: #ff4d4d; }
+    .badge-unlimited { background: rgba(255,193,7,0.15); color: #ffc107; }
+    .scans-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .scans-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      min-width: 80px;
+    }
+    .scans-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .scans-fill.warning { background: linear-gradient(90deg, #ffc107, #ff9800); }
+    .scans-fill.danger { background: linear-gradient(90deg, #ff4d4d, #ff1744); }
+    .scans-text { font-size: 12px; color: #999; white-space: nowrap; }
+    .qr-cell {
+      position: relative;
+      cursor: pointer;
+    }
+    .qr-preview {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      object-fit: contain;
+      background: #fff;
+      padding: 2px;
+      transition: transform 0.2s;
+    }
+    .qr-preview:hover { transform: scale(1.1); }
+    .qr-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .qr-modal-overlay.show { display: flex; }
+    .qr-modal {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      max-width: 90vw;
+    }
+    .qr-modal img {
+      width: 280px;
+      height: 280px;
+      background: #fff;
+      padding: 8px;
+      border-radius: 8px;
+    }
+    .qr-modal .scan-url {
+      margin-top: 12px;
+      color: #888;
+      font-size: 13px;
+      word-break: break-all;
+    }
+    .qr-modal .close-btn {
+      margin-top: 16px;
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+      border: none;
+      padding: 8px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .qr-modal .close-btn:hover { background: rgba(255,255,255,0.2); }
+    .actions { display: flex; gap: 6px; flex-wrap: nowrap; }
+    .toast {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      z-index: 2000;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast-success { background: rgba(0,200,83,0.2); border: 1px solid rgba(0,200,83,0.3); color: #00c853; }
+    .toast-error { background: rgba(255,77,77,0.2); border: 1px solid rgba(255,77,77,0.3); color: #ff4d4d; }
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+    @media (max-width: 768px) {
+      .form-row { flex-direction: column; }
+      .form-group { min-width: 100%; }
+      .table-wrap { font-size: 13px; }
+      th, td { padding: 8px 6px; }
+      .url-cell { max-width: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>二维码扫码次数限制系统</h1>
+      <p>生成带扫码次数限制的二维码，精确控制链接访问</p>
+    </header>
+
+    <div class="card">
+      <h2>创建新二维码</h2>
+      <form id="createForm" class="form-row">
+        <div class="form-group" style="flex:3">
+          <label for="targetUrl">目标链接</label>
+          <input type="url" id="targetUrl" placeholder="https://example.com" required>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label for="maxScans">限制扫码次数 <span style="color:#666;font-size:12px">(0=不限)</span></label>
+          <input type="number" id="maxScans" value="0" min="0" step="1">
+        </div>
+        <div class="form-group" style="flex:0">
+          <button type="submit" class="btn btn-primary" id="createBtn">生成二维码</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>所有二维码</h2>
+      <div id="qrcodeList">
+        <div class="empty-state">
+          <div class="icon">📱</div>
+          <p>暂无二维码，请在上方创建</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="qr-modal-overlay" id="qrModal">
+    <div class="qr-modal">
+      <img id="modalQrImage" src="" alt="二维码">
+      <div style="margin-top:10px;font-size:16px;color:#00d2ff" id="modalScans"></div>
+      <div class="scan-url" id="modalScanUrl"></div>
+      <button class="close-btn" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast toast-' + type + ' show';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function closeModal() {
+      document.getElementById('qrModal').classList.remove('show');
+    }
+
+    document.getElementById('qrModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    function showQrModal(qr) {
+      document.getElementById('modalQrImage').src = qr.qr_image;
+      document.getElementById('modalScanUrl').textContent = '扫码链接: ' + qr.scan_url;
+      const scansText = qr.max_scans === 0
+        ? '已扫码 ' + qr.current_scans + ' 次 (无限制)'
+        : '已扫码 ' + qr.current_scans + ' / ' + qr.max_scans + ' 次';
+      document.getElementById('modalScans').textContent = scansText;
+      document.getElementById('qrModal').classList.add('show');
+    }
+
+    function getStatusInfo(qr) {
+      if (qr.max_scans === 0) {
+        return { label: '无限制', cls: 'badge-unlimited' };
+      }
+      if (qr.current_scans >= qr.max_scans) {
+        return { label: '已用完 (' + qr.current_scans + '/' + qr.max_scans + ')', cls: 'badge-expired' };
+      }
+      return { label: '进行中 (' + qr.current_scans + '/' + qr.max_scans + ')', cls: 'badge-active' };
+    }
+
+    function getScansPercent(qr) {
+      if (qr.max_scans === 0) return 0;
+      return Math.min(100, (qr.current_scans / qr.max_scans) * 100);
+    }
+
+    function getScanClass(qr) {
+      if (qr.max_scans === 0) return '';
+      const pct = qr.current_scans / qr.max_scans;
+      if (pct >= 1) return 'danger';
+      if (pct >= 0.8) return 'warning';
+      return '';
+    }
+
+    async function loadQrcodes() {
+      try {
+        const res = await fetch('/api/qrcodes');
+        const qrcodes = await res.json();
+        const container = document.getElementById('qrcodeList');
+
+        if (qrcodes.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>暂无二维码，请在上方创建</p></div>';
+          return;
+        }
+
+        let html = '<div class="table-wrap"><table><thead><tr>' +
+          '<th>二维码</th><th>目标链接</th><th>扫码次数</th><th>状态</th><th>创建时间</th><th>操作</th>' +
+          '</tr></thead><tbody>';
+
+        for (const qr of qrcodes) {
+          const status = getStatusInfo(qr);
+          const pct = getScansPercent(qr);
+          const scanCls = getScanClass(qr);
+          html += '<tr>' +
+            '<td class="qr-cell"><img class="qr-preview" src="' + qr.qr_image + '" alt="QR" onclick="showQrModal(' + JSON.stringify(qr).replace(/"/g, '&quot;') + ')"></td>' +
+            '<td class="url-cell"><a href="' + qr.target_url + '" target="_blank" title="' + qr.target_url + '">' + qr.target_url + '</a></td>' +
+            '<td><div class="scans-bar"><div class="scans-track"><div class="scans-fill ' + scanCls + '" style="width:' + pct + '%"></div></div><span class="scans-text">' + qr.current_scans + '/' + (qr.max_scans || '∞') + '</span></div></td>' +
+            '<td><span class="badge ' + status.cls + '">' + status.label + '</span></td>' +
+            '<td style="color:#666;font-size:12px">' + (qr.created_at || '') + '</td>' +
+            '<td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="resetQrcode(\'' + qr.id + '\')">重置</button><button class="btn btn-danger btn-sm" onclick="deleteQrcode(\'' + qr.id + '\')">删除</button></div></td>' +
+            '</tr>';
+        }
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        showToast('加载二维码列表失败', 'error');
+      }
+    }
+
+    async function deleteQrcode(id) {
+      if (!confirm('确定要删除这个二维码吗？')) return;
+      try {
+        const res = await fetch('/api/qrcodes/' + id, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('删除成功', 'success');
+          loadQrcodes();
+        } else {
+          const data = await res.json();
+          showToast(data.error || '删除失败', 'error');
+        }
+      } catch (err) {
+        showToast('删除失败', 'error');
+      }
+    }
+
+    async function resetQrcode(id) {
+      if (!confirm('确定要重置此二维码的扫码次数吗？')) return;
+      try {
+        const res = await fetch('/api/qrcodes/' + id + '/reset', { method: 'PUT' });
+        if (res.ok) {
+          showToast('扫码次数已重置为 0', 'success');
+          loadQrcodes();
+        } else {
+          const data = await res.json();
+          showToast(data.error || '重置失败', 'error');
+        }
+      } catch (err) {
+        showToast('重置失败', 'error');
+      }
+    }
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('createBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span>生成中...';
+
+      try {
+        const target_url = document.getElementById('targetUrl').value;
+        const max_scans = parseInt(document.getElementById('maxScans').value) || 0;
+
+        const res = await fetch('/api/qrcodes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_url, max_scans })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          showToast('二维码生成成功！', 'success');
+          document.getElementById('targetUrl').value = '';
+          document.getElementById('maxScans').value = '0';
+          loadQrcodes();
+          setTimeout(() => showQrModal(data), 300);
+        } else {
+          showToast(data.error || '生成失败', 'error');
+        }
+      } catch (err) {
+        showToast('生成失败，请检查服务是否运行', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '生成二维码';
+      }
+    });
+
+    loadQrcodes();
+  </script>
+</body>
+</html>
